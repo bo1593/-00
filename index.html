@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مسبحتي العالمية 3.0</title>
+
+<link rel="manifest" href="manifest.json">
+
+<style>
+body{
+margin:0;
+font-family:Tahoma;
+direction:rtl;
+background:linear-gradient(135deg,#0f9b8e,#1a2a6c);
+display:flex;
+justify-content:center;
+align-items:center;
+min-height:100vh;
+}
+
+.container{
+background:#fff;
+width:95%;
+max-width:450px;
+padding:20px;
+border-radius:25px;
+text-align:center;
+box-shadow:0 10px 30px rgba(0,0,0,.3);
+}
+
+.dark{
+background:#111 !important;
+color:#fff;
+}
+
+select,button{
+width:100%;
+padding:12px;
+margin-top:10px;
+border:none;
+border-radius:12px;
+font-size:16px;
+}
+
+.circle{
+width:200px;
+height:200px;
+border-radius:50%;
+margin:20px auto;
+display:flex;
+justify-content:center;
+align-items:center;
+font-size:40px;
+font-weight:bold;
+background:conic-gradient(#0f9b8e 0deg,#eee 0deg);
+}
+
+.stats{font-size:14px;margin-top:10px;}
+
+.section{
+margin-top:15px;
+font-size:14px;
+text-align:right;
+display:none;
+}
+
+canvas{margin-top:15px;}
+</style>
+</head>
+
+<body>
+
+<div class="container" id="app">
+
+<h2>📿 مسبحتي العالمية</h2>
+
+<select id="zekr" onchange="changeZekr()">
+<option>سبحان الله</option>
+<option>الحمد لله</option>
+<option>الله أكبر</option>
+<option>لا إله إلا الله</option>
+<option>استغفر الله</option>
+</select>
+
+<select id="goal" onchange="changeGoal()">
+<option value="33">هدف 33</option>
+<option value="100">هدف 100</option>
+<option value="1000">هدف 1000</option>
+<option value="999999">مفتوح</option>
+</select>
+
+<select id="soundSelect">
+<option value="s1">صوت 1</option>
+<option value="s2">صوت 2</option>
+</select>
+
+<div class="circle" id="circle">0</div>
+
+<button onclick="tasbeeh()">تسبيح</button>
+<button onclick="resetCounter()">تصفير</button>
+<button onclick="toggleMode()">وضع ليلي 🌙</button>
+<button onclick="toggleAzkar()">أذكار</button>
+
+<div class="stats" id="stats"></div>
+
+<div class="section" id="azkarBox"></div>
+
+<div class="section" id="prayerTimes"></div>
+
+<canvas id="chart" width="300" height="150"></canvas>
+
+</div>
+
+<audio id="s1">
+<source src="https://www.soundjay.com/button/sounds/button-3.mp3">
+</audio>
+
+<audio id="s2">
+<source src="https://www.soundjay.com/button/sounds/button-09.mp3">
+</audio>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+
+if("serviceWorker" in navigator){
+navigator.serviceWorker.register("sw.js");
+}
+
+let counts=JSON.parse(localStorage.getItem("counts"))||{};
+let daily=JSON.parse(localStorage.getItem("daily"))||{};
+let xp=parseInt(localStorage.getItem("xp")||0);
+
+let today=new Date().toLocaleDateString();
+if(!daily[today]) daily[today]=0;
+
+let zekr=document.getElementById("zekr").value;
+if(!counts[zekr]) counts[zekr]=0;
+
+let goal=33;
+
+updateUI();
+drawChart();
+getPrayerTimes();
+
+function changeGoal(){
+goal=parseInt(document.getElementById("goal").value);
+updateUI();
+}
+
+function changeZekr(){
+zekr=document.getElementById("zekr").value;
+if(!counts[zekr]) counts[zekr]=0;
+updateUI();
+}
+
+function updateUI(){
+
+let count=counts[zekr];
+document.getElementById("circle").innerText=count;
+
+let deg=(count/goal)*360;
+if(deg>360)deg=360;
+
+document.getElementById("circle").style.background=
+`conic-gradient(#0f9b8e ${deg}deg,#eee ${deg}deg)`;
+
+let level=Math.floor(xp/500)+1;
+
+document.getElementById("stats").innerHTML=
+`📊 اليوم: ${daily[today]} |
+⭐ XP: ${xp} |
+🏅 Level: ${level}`;
+}
+
+function tasbeeh(){
+
+counts[zekr]++;
+daily[today]++;
+xp+=5;
+
+localStorage.setItem("counts",JSON.stringify(counts));
+localStorage.setItem("daily",JSON.stringify(daily));
+localStorage.setItem("xp",xp);
+
+let sound=document.getElementById(document.getElementById("soundSelect").value);
+sound.play();
+
+if(navigator.vibrate) navigator.vibrate(40);
+
+updateUI();
+drawChart();
+}
+
+function resetCounter(){
+counts[zekr]=0;
+localStorage.setItem("counts",JSON.stringify(counts));
+updateUI();
+}
+
+function toggleMode(){
+document.getElementById("app").classList.toggle("dark");
+}
+
+function toggleAzkar(){
+let box=document.getElementById("azkarBox");
+box.style.display=box.style.display=="block"?"none":"block";
+box.innerHTML=`
+<b>أذكار الصباح:</b><br>
+سبحان الله وبحمده 100 مرة<br>
+رضيت بالله رباً<br><br>
+<b>أذكار المساء:</b><br>
+أعوذ بكلمات الله التامات<br>
+استغفر الله العظيم
+`;
+}
+
+function drawChart(){
+let labels=Object.keys(daily);
+let data=Object.values(daily);
+new Chart(document.getElementById("chart"),{
+type:"bar",
+data:{labels:labels,datasets:[{label:"التسبيحات",data:data}]}
+});
+}
+
+function getPrayerTimes(){
+if(navigator.geolocation){
+navigator.geolocation.getCurrentPosition(pos=>{
+let lat=pos.coords.latitude;
+let lon=pos.coords.longitude;
+
+fetch(`https://api.aladhan.com/v1/timings?latitude=${lat}&longitude=${lon}&method=5`)
+.then(res=>res.json())
+.then(data=>{
+let t=data.data.timings;
+let box=document.getElementById("prayerTimes");
+box.style.display="block";
+box.innerHTML=`
+<b>🕋 مواقيت الصلاة</b><br>
+الفجر: ${t.Fajr}<br>
+الظهر: ${t.Dhuhr}<br>
+العصر: ${t.Asr}<br>
+المغرب: ${t.Maghrib}<br>
+العشاء: ${t.Isha}
+`;
+});
+});
+}
+}
+
+if(Notification.permission!=="granted"){
+Notification.requestPermission();
+}
+
+setInterval(()=>{
+if(Notification.permission==="granted"){
+new Notification("📿 لا تنس التسبيح");
+}
+},3600000);
+
+</script>
+
+</body>
+</html>
